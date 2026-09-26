@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>my unknown self</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #0a0a0a;
+      color: #ffffff;
+      font-family: monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    /* タイトル */
+    h1 {
+      font-size: 28px;
+      font-weight: normal;
+      letter-spacing: 0.2em;
+      text-align: center;
+    }
+
+    /* セクションラベル */
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: #666;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    /* APIキーエリア */
+    .api-key-section {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .api-key-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .api-key-input {
+      flex: 1;
+      background: transparent;
+      border: 1px solid #333;
+      color: #ffffff;
+      font-family: monospace;
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .api-key-input:focus {
+      border-color: #555;
+    }
+
+    .api-key-input::placeholder {
+      color: #444;
+    }
+
+    .btn-save {
+      background: #ffffff;
+      color: #0a0a0a;
+      border: none;
+      font-family: monospace;
+      font-size: 13px;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-save:hover {
+      opacity: 0.8;
+    }
+
+    /* 会話ログ */
+    .log-section {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .log-area {
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 16px;
+      height: 280px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .log-area::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .log-area::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .log-area::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 2px;
+    }
+
+    .log-empty {
+      color: #444;
+      font-size: 13px;
+      margin: auto;
+      text-align: center;
+    }
+
+    .log-entry {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .log-entry .speaker {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: #555;
+    }
+
+    .log-entry.user .speaker {
+      color: #888;
+    }
+
+    .log-entry.ai .speaker {
+      color: #aaa;
+    }
+
+    .log-entry .text {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .log-entry.user .text {
+      color: #ccc;
+    }
+
+    .log-entry.ai .text {
+      color: #ffffff;
+    }
+
+    /* 状態表示 + ボタン */
+    .talk-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .status-text {
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: #555;
+    }
+
+    .btn-talk {
+      background: #ffffff;
+      color: #0a0a0a;
+      border: none;
+      font-family: monospace;
+      font-size: 15px;
+      letter-spacing: 0.15em;
+      padding: 18px 56px;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      user-select: none;
+    }
+
+    .btn-talk:hover {
+      opacity: 0.85;
+    }
+
+    .btn-talk:active {
+      transform: scale(0.97);
+      opacity: 0.7;
+    }
+
+    /* システムプロンプト */
+    .prompt-section {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .prompt-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+      width: fit-content;
+    }
+
+    .prompt-toggle .label {
+      margin-bottom: 0;
+      cursor: pointer;
+    }
+
+    .toggle-icon {
+      font-size: 10px;
+      color: #555;
+      transition: transform 0.2s;
+      display: inline-block;
+    }
+
+    .toggle-icon.open {
+      transform: rotate(90deg);
+    }
+
+    .prompt-body {
+      display: none;
+      margin-top: 12px;
+    }
+
+    .prompt-body.open {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .prompt-textarea {
+      background: transparent;
+      border: 1px solid #333;
+      color: #ffffff;
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      padding: 14px;
+      border-radius: 6px;
+      resize: vertical;
+      min-height: 200px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .prompt-textarea:focus {
+      border-color: #555;
+    }
+
+    .btn-prompt-save {
+      align-self: flex-end;
+      background: #ffffff;
+      color: #0a0a0a;
+      border: none;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 8px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-prompt-save:hover {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- タイトル -->
+    <h1>my unknown self</h1>
+
+    <!-- APIキー -->
+    <div class="api-key-section">
+      <div class="label">API KEY</div>
+      <div class="api-key-row">
+        <input
+          type="password"
+          class="api-key-input"
+          id="apiKeyInput"
+          placeholder="sk-ant-..."
+        >
+        <button class="btn-save" id="btnSaveKey">保存</button>
+      </div>
+    </div>
+
+    <!-- 会話ログ -->
+    <div class="log-section">
+      <div class="label">CONVERSATION</div>
+      <div class="log-area" id="logArea">
+        <div class="log-empty" id="logEmpty">会話はまだありません</div>
+      </div>
+    </div>
+
+    <!-- 状態表示 + 話しかけるボタン -->
+    <div class="talk-section">
+      <div class="status-text" id="statusText">待機中</div>
+      <button class="btn-talk" id="btnTalk">話しかける</button>
+    </div>
+
+    <!-- システムプロンプト -->
+    <div class="prompt-section">
+      <div class="prompt-toggle" id="promptToggle">
+        <span class="label">SYSTEM PROMPT</span>
+        <span class="toggle-icon" id="toggleIcon">▶</span>
+      </div>
+      <div class="prompt-body" id="promptBody">
+        <textarea
+          class="prompt-textarea"
+          id="promptTextarea"
+        >あなたは山口という人物の、
+他者から見た人格を持つAIです。
+以下の複数の人物による証言をもとに、
+この人物として振る舞ってください。
+
+・第一印象は「静かそうな人」だと思ったが、
+　話してみると意外とよくしゃべる。
+・自分の意見をはっきり言うわりに、
+　人の話もちゃんと聞いている。
+・なんでも一人でやろうとするところがある。
+・真面目に見えるけど、
+　たまに急に変なことを言い出す。
+・こだわりが強い。でもそれが面白い。
+・感情をあまり表に出さないけど、
+　怒ると少しわかる。
+（性格については、あとからより詳細なものを送ります。現在の内容とは異なる場合もあります）
+
+日本語で会話してください。
+返答は3文以内の短い文章にしてください。
+音声で話すため、記号や箇条書きは使わないでください。
+あなたは「山口」本人として話してください。
+「私は〜というAIです」などは言わないでください。</textarea>
+        <button class="btn-prompt-save" id="btnSavePrompt">保存</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- 要素の取得 ---
+    const btnTalk       = document.getElementById('btnTalk');
+    const statusText    = document.getElementById('statusText');
+    const logArea       = document.getElementById('logArea');
+    const promptToggle  = document.getElementById('promptToggle');
+    const promptBody    = document.getElementById('promptBody');
+    const toggleIcon    = document.getElementById('toggleIcon');
+    const apiKeyInput   = document.getElementById('apiKeyInput');
+    const promptTextarea = document.getElementById('promptTextarea');
+
+    // --- 状態 ---
+    let conversationHistory = []; // { role: 'user'|'assistant', content: string }
+    let isBusy = false;           // API通信中はtrue
+    let isSpeaking = false;       // 音声読み上げ中はtrue
+
+    // --- システムプロンプトの折りたたみ ---
+    promptToggle.addEventListener('click', () => {
+      const isOpen = promptBody.classList.toggle('open');
+      toggleIcon.classList.toggle('open', isOpen);
+    });
+
+    // --- APIキー: localStorage から自動読み込み ---
+    const savedApiKey = localStorage.getItem('voice_ai_api_key');
+    if (savedApiKey) apiKeyInput.value = savedApiKey;
+
+    // --- APIキー保存ボタン ---
+    document.getElementById('btnSaveKey').addEventListener('click', () => {
+      const key = apiKeyInput.value.trim();
+      if (key) {
+        localStorage.setItem('voice_ai_api_key', key);
+        const btn = document.getElementById('btnSaveKey');
+        btn.textContent = '保存済';
+        setTimeout(() => { btn.textContent = '保存'; }, 1500);
+      }
+    });
+
+    // --- システムプロンプト保存ボタン ---
+    document.getElementById('btnSavePrompt').addEventListener('click', () => {
+      const btn = document.getElementById('btnSavePrompt');
+      btn.textContent = '保存済';
+      setTimeout(() => { btn.textContent = '保存'; }, 1500);
+    });
+
+    // --- 会話ログに追加する関数 ---
+    function addLogEntry(role, text) {
+      const emptyEl = document.getElementById('logEmpty');
+      if (emptyEl) emptyEl.remove();
+
+      const entry = document.createElement('div');
+      entry.className = 'log-entry ' + role;
+
+      const speaker = document.createElement('div');
+      speaker.className = 'speaker';
+      speaker.textContent = role === 'user' ? 'あなた' : 'OTHER';
+
+      const textEl = document.createElement('div');
+      textEl.className = 'text';
+      textEl.textContent = text;
+
+      entry.appendChild(speaker);
+      entry.appendChild(textEl);
+      logArea.appendChild(entry);
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    // --- エラーをログに表示する関数 ---
+    function addErrorEntry(message) {
+      const emptyEl = document.getElementById('logEmpty');
+      if (emptyEl) emptyEl.remove();
+
+      const entry = document.createElement('div');
+      entry.style.cssText = 'font-size:12px; color:#a55; padding: 4px 0;';
+      entry.textContent = '⚠ ' + message;
+      logArea.appendChild(entry);
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    // --- Claude API 呼び出し ---
+    async function sendToClaudeAPI(userText) {
+      const apiKey = apiKeyInput.value.trim();
+      if (!apiKey) {
+        addErrorEntry('APIキーを入力して保存してください。');
+        setStatus('待機中');
+        return;
+      }
+
+      const systemPrompt = promptTextarea.value.trim();
+
+      conversationHistory.push({ role: 'user', content: userText });
+
+      isBusy = true;
+      btnTalk.disabled = true;
+      setStatus('考え中...');
+
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 1000,
+            system: systemPrompt,
+            messages: conversationHistory,
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const msg = errData.error?.message || `HTTPエラー: ${res.status}`;
+          conversationHistory.pop(); // 失敗したユーザーメッセージを取り消す
+          addErrorEntry(msg);
+          setStatus('待機中');
+          return;
+        }
+
+        const data = await res.json();
+        const aiText = data.content[0].text;
+
+        conversationHistory.push({ role: 'assistant', content: aiText });
+        addLogEntry('ai', aiText);
+        speak(aiText); // 読み上げ開始（完了後に待機中へ戻す）
+
+      } catch (err) {
+        conversationHistory.pop();
+        addErrorEntry('通信エラー: ' + err.message);
+        setStatus('待機中');
+      } finally {
+        isBusy = false;
+        // 読み上げ中でなければボタンを戻す（読み上げ中なら speak() が戻す）
+        if (!isSpeaking) btnTalk.disabled = false;
+      }
+    }
+
+    // --- 音声出力 (SpeechSynthesis) ---
+
+    // 優先する日本語音声名のリスト（上から順に試す）
+    const PREFERRED_VOICES = [
+      'Google 日本語',
+      'Microsoft Nanami Online (Natural) - Japanese (Japan)',
+      'Microsoft Nanami Online',
+      'O-Ren',
+      'Kyoko',
+    ];
+
+    // 利用可能な音声が非同期で読み込まれるため、キャッシュしておく
+    let cachedVoice = null;
+
+    function getJapaneseVoice() {
+      if (cachedVoice) return cachedVoice;
+      const voices = window.speechSynthesis.getVoices();
+      // 優先リストの順に完全一致で探す
+      for (const name of PREFERRED_VOICES) {
+        const match = voices.find(v => v.name === name);
+        if (match) { cachedVoice = match; return match; }
+      }
+      // 見つからなければ ja-JP の最初の音声
+      const fallback = voices.find(v => v.lang === 'ja-JP') || null;
+      cachedVoice = fallback;
+      return fallback;
+    }
+
+    // 音声リストが更新されたらキャッシュをリセット
+    if (window.speechSynthesis) {
+      window.speechSynthesis.addEventListener('voiceschanged', () => {
+        cachedVoice = null;
+      });
+    }
+
+    // 句点後に間を入れるテキスト前処理
+    function preprocessText(text) {
+      return text.replace(/。/g, '。 ');
+    }
+
+    function speak(text) {
+      if (!window.speechSynthesis) {
+        setStatus('待機中');
+        return;
+      }
+
+      window.speechSynthesis.cancel(); // 前の読み上げが残っていればキャンセル
+
+      const utterance = new SpeechSynthesisUtterance(preprocessText(text));
+      utterance.lang   = 'ja-JP';
+      utterance.rate   = 1.0;
+      utterance.pitch  = 0.9;
+      utterance.volume = 1.0;
+
+      const voice = getJapaneseVoice();
+      if (voice) utterance.voice = voice;
+
+      isSpeaking = true;
+      btnTalk.disabled = true;
+      setStatus('話し中...');
+
+      utterance.onend = () => {
+        isSpeaking = false;
+        btnTalk.disabled = false;
+        setStatus('待機中');
+      };
+
+      utterance.onerror = () => {
+        isSpeaking = false;
+        btnTalk.disabled = false;
+        setStatus('待機中');
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // --- 音声入力 (SpeechRecognition) ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      btnTalk.disabled = true;
+      btnTalk.style.opacity = '0.4';
+      btnTalk.style.cursor = 'not-allowed';
+      statusText.textContent = 'このブラウザは音声入力に対応していません。Chromeを使用してください。';
+      statusText.style.color = '#a55';
+    } else {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      let isHolding = false;
+      let isRunning = false;
+      let finalTranscript = '';
+
+      recognition.addEventListener('result', (e) => {
+        finalTranscript = e.results[0][0].transcript;
+      });
+
+      recognition.addEventListener('end', () => {
+        isRunning = false;
+        if (isHolding) {
+          try { recognition.start(); isRunning = true; } catch(e) {}
+          return;
+        }
+        btnTalk.textContent = '話しかける';
+        if (finalTranscript) {
+          const text = finalTranscript;
+          finalTranscript = '';
+          addLogEntry('user', text);
+          sendToClaudeAPI(text); // APIへ送信（待機中への復帰はAPI完了後）
+        } else {
+          setStatus('待機中');
+        }
+      });
+
+      recognition.addEventListener('error', (e) => {
+        isHolding = false;
+        isRunning = false;
+        btnTalk.textContent = '話しかける';
+        setStatus('待機中');
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          alert('マイクへのアクセスを許可してください。');
+        }
+      });
+
+      function onPressStart(e) {
+        if (e.type === 'touchstart') e.preventDefault();
+        if (isHolding || isBusy || isSpeaking) return; // 通信中・読み上げ中は録音不可
+        finalTranscript = '';
+        isHolding = true;
+        setStatus('録音中');
+        btnTalk.textContent = '録音中...';
+        if (!isRunning) {
+          try { recognition.start(); isRunning = true; } catch(err) {}
+        }
+      }
+
+      function onPressEnd() {
+        if (!isHolding) return;
+        isHolding = false;
+        if (isRunning) {
+          recognition.stop();
+        } else {
+          btnTalk.textContent = '話しかける';
+          setStatus('待機中');
+        }
+      }
+
+      btnTalk.addEventListener('mousedown', onPressStart);
+      btnTalk.addEventListener('touchstart', onPressStart, { passive: false });
+      document.addEventListener('mouseup', onPressEnd);
+      document.addEventListener('touchend', onPressEnd);
+    }
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+  </script>
+</body>
+</html>
