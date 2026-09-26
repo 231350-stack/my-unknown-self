@@ -288,20 +288,6 @@
     <!-- タイトル -->
     <h1>my unknown self</h1>
 
-    <!-- APIキー -->
-    <div class="api-key-section">
-      <div class="label">API KEY</div>
-      <div class="api-key-row">
-        <input
-          type="password"
-          class="api-key-input"
-          id="apiKeyInput"
-          placeholder="sk-ant-..."
-        >
-        <button class="btn-save" id="btnSaveKey">保存</button>
-      </div>
-    </div>
-
     <!-- 会話ログ -->
     <div class="log-section">
       <div class="label">CONVERSATION</div>
@@ -362,7 +348,6 @@
     const promptToggle  = document.getElementById('promptToggle');
     const promptBody    = document.getElementById('promptBody');
     const toggleIcon    = document.getElementById('toggleIcon');
-    const apiKeyInput   = document.getElementById('apiKeyInput');
     const promptTextarea = document.getElementById('promptTextarea');
 
     // --- 状態 ---
@@ -374,21 +359,6 @@
     promptToggle.addEventListener('click', () => {
       const isOpen = promptBody.classList.toggle('open');
       toggleIcon.classList.toggle('open', isOpen);
-    });
-
-    // --- APIキー: localStorage から自動読み込み ---
-    const savedApiKey = localStorage.getItem('voice_ai_api_key');
-    if (savedApiKey) apiKeyInput.value = savedApiKey;
-
-    // --- APIキー保存ボタン ---
-    document.getElementById('btnSaveKey').addEventListener('click', () => {
-      const key = apiKeyInput.value.trim();
-      if (key) {
-        localStorage.setItem('voice_ai_api_key', key);
-        const btn = document.getElementById('btnSaveKey');
-        btn.textContent = '保存済';
-        setTimeout(() => { btn.textContent = '保存'; }, 1500);
-      }
     });
 
     // --- システムプロンプト保存ボタン ---
@@ -434,13 +404,6 @@
 
     // --- Claude API 呼び出し ---
     async function sendToClaudeAPI(userText) {
-      const apiKey = apiKeyInput.value.trim();
-      if (!apiKey) {
-        addErrorEntry('APIキーを入力して保存してください。');
-        setStatus('待機中');
-        return;
-      }
-
       const systemPrompt = promptTextarea.value.trim();
 
       conversationHistory.push({ role: 'user', content: userText });
@@ -450,13 +413,10 @@
       setStatus('考え中...');
 
       try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
+        const res = await fetch('/api/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
           },
           body: JSON.stringify({
             model: 'claude-sonnet-4-6',
