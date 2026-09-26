@@ -1,5 +1,8 @@
 {
   "rewrites": [
     { "source": "/", "destination": "/voice-ai.html" }
-  ]
+  ],
+  "env": {
+    "ANTHROPIC_API_KEY": "@anthropic_api_key"
+  }
 }
