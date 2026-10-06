@@ -271,6 +271,30 @@
 
     .prompt-textarea:focus { border-color: #999; }
 
+    .prompt-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .btn-prompt-close {
+      background: transparent;
+      border: none;
+      font-size: 18px;
+      color: rgba(42, 42, 42, 0.35);
+      cursor: pointer;
+      padding: 4px 8px;
+      line-height: 1;
+      font-family: sans-serif;
+      min-width: 36px;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-prompt-close:hover { color: rgba(42, 42, 42, 0.8); }
+
     .btn-prompt-save {
       align-self: flex-end;
       background: #1a1a1a;
@@ -345,7 +369,10 @@
   <!-- システムプロンプトパネル -->
   <div class="prompt-panel" id="promptPanel">
     <div class="prompt-panel-inner">
-      <div class="prompt-label">SYSTEM PROMPT</div>
+      <div class="prompt-panel-header">
+        <div class="prompt-label">SYSTEM PROMPT</div>
+        <button class="btn-prompt-close" id="btnClosePrompt">✕</button>
+      </div>
       <textarea
         class="prompt-textarea"
         id="promptTextarea"
@@ -443,7 +470,11 @@
     const promptTextarea = document.getElementById('promptTextarea');
     const modeLabel     = document.getElementById('modeLabel');
 
-    promptTextarea.value  = (mode === 'self') ? PROMPT_SELF : PROMPT_OTHER;
+    // localStorage のキーはモードごとに分ける
+    const STORAGE_KEY   = `prompt_${mode}`;
+    const defaultPrompt = (mode === 'self') ? PROMPT_SELF : PROMPT_OTHER;
+    const savedPrompt   = localStorage.getItem(STORAGE_KEY);
+    promptTextarea.value  = (savedPrompt !== null) ? savedPrompt : defaultPrompt;
     modeLabel.textContent = (mode === 'self') ? 'SELF VIEW' : 'OTHER VIEW';
 
     // ════════════════════════════════════════════
@@ -516,9 +547,15 @@
 
     // システムプロンプト保存ボタン
     document.getElementById('btnSavePrompt').addEventListener('click', function () {
+      localStorage.setItem(STORAGE_KEY, promptTextarea.value);
       var btn = document.getElementById('btnSavePrompt');
       btn.textContent = '保存済';
       setTimeout(function () { btn.textContent = '保存'; }, 1500);
+    });
+
+    // パネルを閉じるボタン
+    document.getElementById('btnClosePrompt').addEventListener('click', function () {
+      document.getElementById('promptPanel').classList.remove('open');
     });
 
     // 会話ログに追加（最新 MAX_LOG 件のみ保持）
