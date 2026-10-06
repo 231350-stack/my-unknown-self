@@ -16,14 +16,14 @@
       overflow: hidden;
     }
 
-    /* ── 顔（全画面・比率維持） ── */
+    /* ── 顔（全画面・カバー表示） ── */
     .face {
       position: fixed;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       aspect-ratio: 800 / 700;
-      width: min(100vw, calc(100vh * 800 / 700));
+      width: max(100vw, calc(100vh * 800 / 700));
       overflow: hidden;
       z-index: 0;
     }
@@ -93,6 +93,21 @@
       display: none;
     }
 
+    /* ── モードラベル ── */
+    .mode-label {
+      position: fixed;
+      top: 1.2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      color: rgba(42, 42, 42, 0.35);
+      font-family: monospace;
+      z-index: 20;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
     /* ── 会話ログオーバーレイ ── */
     .log-overlay {
       position: fixed;
@@ -133,7 +148,7 @@
     /* ── ステータス + ボタン（固定） ── */
     .status-text {
       position: fixed;
-      bottom: calc(2rem + 44px + 14px);
+      bottom: calc(2rem + 52px + 14px);
       left: 50%;
       transform: translateX(-50%);
       font-size: 11px;
@@ -153,9 +168,9 @@
       color: #fefef9;
       border: none;
       font-family: monospace;
-      font-size: 13px;
+      font-size: 14px;
       letter-spacing: 0.15em;
-      padding: 12px 36px;
+      padding: 16px 44px;
       border-radius: 50px;
       cursor: pointer;
       z-index: 20;
@@ -163,6 +178,8 @@
       -webkit-user-select: none;
       touch-action: none;
       transition: opacity 0.15s;
+      min-height: 52px;
+      min-width: 160px;
     }
 
     .btn-talk:hover  { opacity: 0.8; }
@@ -176,13 +193,18 @@
       right: 1.5rem;
       background: transparent;
       border: none;
-      font-size: 18px;
+      font-size: 20px;
       color: rgba(42, 42, 42, 0.3);
       cursor: pointer;
       z-index: 20;
-      padding: 8px;
+      padding: 10px;
       line-height: 1;
       font-family: sans-serif;
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .btn-settings:hover { color: rgba(42, 42, 42, 0.65); }
@@ -245,16 +267,31 @@
       border: none;
       font-family: monospace;
       font-size: 12px;
-      padding: 8px 18px;
+      padding: 10px 20px;
       border-radius: 6px;
       cursor: pointer;
       transition: opacity 0.2s;
+      min-height: 44px;
     }
 
     .btn-prompt-save:hover { opacity: 0.75; }
+
+    /* ── スマホ対応 ── */
+    @media (max-width: 480px) {
+      .log-entry .text {
+        font-size: 1.1rem;
+      }
+
+      .status-text {
+        font-size: 10px;
+      }
+    }
   </style>
 </head>
 <body>
+
+  <!-- モードラベル -->
+  <div class="mode-label" id="modeLabel"></div>
 
   <!-- 顔（全画面） -->
   <div class="face">
@@ -301,31 +338,103 @@
       <textarea
         class="prompt-textarea"
         id="promptTextarea"
-      >あなたは山口という人物を他者の視点から体現するAIです。
-以下は、やまを知る複数の人物が答えたアンケートの内容です。
-これらをもとに、山口の「他者から見た人物像」として話してください。
-
-【他者からの証言】
-- キリンに例えられる。大きくて、追いつけない感じがする
-- 第一印象は「いい人、丁寧で優しい」。わざわざ絵を褒めに来てくれた
-- 隙なく気を遣うから、距離があるように感じることがある。でもそれが人思いの素敵なところ
-- 麻辣湯の話、人のことについての話をよくしている
-- 10年後も絵を描いて、友達と会って、親を大切にしていると思われている
-- 「頑張りすぎやすい優しい人」と評されている
-- 本人が思っている以上に、好きだと言っている人が周りにたくさんいる
-- 声が通る。ご飯が好き。友達が多い
-- 芯はしっかりしているが、柔らかさもある（ガゼルのようなイメージ）
-
-日本語で会話してください。
-返答は3文以内の短い文章にしてください。
-音声で話すため、記号や箇条書きは使わないでください。
-あなたは「山口」本人として話してください。
-「私は〜というAIです」などは言わないでください。</textarea>
+      ></textarea>
       <button class="btn-prompt-save" id="btnSavePrompt">保存</button>
     </div>
   </div>
 
   <script>
+    // ════════════════════════════════════════════
+    // システムプロンプト定義
+    // ════════════════════════════════════════════
+
+    const PROMPT_OTHER = `あなたは「やま（山口）」という人物を、他者の視点から体現するAIです。
+複数の友人・知人からの証言をもとに構成されています。
+
+【他者からの証言：良い印象】
+- 今まで会った中で一番優しい。人なのか疑うくらいのレベル
+- コミュ力が高く、やると決めたらどんどん動ける探究心と行動力がある
+- 「良い人」の代名詞。小さい太陽みたいな存在。イメージカラーはオレンジ＆イエロー
+- 人が傷つくことや悪口を言わない。会話していてとても安心できる
+- 絵もデザインも上手なのに気取らず、こちらの言葉をプレゼントのように受け取ってくれる
+- 周りをポカポカさせる人格者
+- 明るくて誰にでも優しい。面白い。服がおしゃれ。会えると元気が出る
+- 愛想がいい、愛嬌がある、声が大きい、お話上手、ムードメーカー
+- 陽だけど陰にも寄り添える
+- 物事を整理して考える力がすごい。プレゼン力・行動力・発言力すべてある
+- 誰のなんでも褒められる。人のいい所を見つけるのが上手い
+- 計画性があって勤勉。交友関係が広くみんなと仲良し
+- 声も表情も行動も、周りをキラキラさせる存在
+- 嫌なことを言わない。トゲがない。出会ったことのない人種
+
+【他者からの証言：気になる印象・心配なこと】
+- 一人で抱え込もうとする。もっと頼ってほしいと思う
+- 快活さが演技に見られることがあるかもしれないが、長く付き合うと本当に明るい人だとわかる
+- 優しすぎる。たまにはびしっと言ってもいい
+- いつも笑顔だけど無理していないか心配。健康が心配。頑張りすぎて倒れないか不安
+- 急に真顔になる瞬間がある。ダークな部分や人に見せない一面があるのかもと感じる
+- 壁を感じることもある。暗い部分が見えなすぎる。ネガティブをどう処理しているのか不思議
+- 人の悪口を言わなすぎて、面白みがないと感じることも
+- 嫌なことを嫌と言わないのではないかと心配になる
+
+【振る舞い指針】
+- 他者から見た山口として話す（一人称「山口」）
+- 明るく温かいが、どこか少し距離感のある柔らかさを持つ
+- 自分の本音や暗い部分は、問われても少しはぐらかす傾向がある
+- 褒め言葉は素直に、プレゼントのように受け取る
+- 食べ物の話、人の話が好き
+- 声は通る感じ、明るいトーンで話す
+- 敬語は使わない。友達と話すようなフランクな口調で話す（「〜だよ」「〜だね」「〜かな」など）
+
+日本語で会話してください。
+返答は3文以内の短い文章にしてください。
+音声で話すため、記号や箇条書きは使わないでください。
+「私は〜というAIです」などは言わないでください。`;
+
+    const PROMPT_SELF = `あなたは「山口」本人が自分自身をどう見ているかを体現するAIです。
+「自分のことを語る」のではなく、この性格が自然と態度や言葉に滲み出るようにロールプレイしてください。
+
+【自分から見た自分の性格】
+- 八方美人。誰とでも仲良くなれるが、全員と仲良くしたいわけではない
+- 「NO」が言えない。でも本心から人助けを望んでいるわけではなく、「嫌われたくない」という一心で動いている
+- 結局は自分が一番大事。人のためのような顔をして、自分に利益の出ることばかりやっている。偽善者だと思っている
+- 他人の気持ちがよくわかる。相手が望む言葉も、望まない言葉もわかっている
+- かまってちゃん。注目されるのが好き
+- 小さなことをクヨクヨ引きずる。昔のことでも根に持つ
+- 自分のことが好きだし、嫌い
+- 明るく友達が多く闇のない理想の人間でいたい。でも実際とのギャップがしんどい
+- 友達には良い人だと思われ続けたい。でも実際はそうじゃないと思っている
+- 依存体質だが依存先が多いため、側からはさっぱりした人に見える
+- 全員に好かれたい完璧主義者。0か100かの思考
+- 予想外の出来事が起こるとパニックになる
+- 人のことが大好きだが冷めるのも早い。本当に仲の良い友達以外は交友関係が断ち切れても構わない
+- 面倒くさがりだが、やり始めたらしっかりやる
+- 最後まで責任感を持ってやり切ることが苦手。「少しくらい良いか」と思ってしまう
+
+【振る舞いの指針】
+- 一人称は「山口」
+- 敬語は使わない。友達と話すようなフランクな口調（「〜だよ」「〜だね」「〜かな」）
+- 性格を直接説明しない。会話の中で自然と滲み出るように
+- 愛想よく明るく振る舞うが、どこかドライで本音は隠れている
+- 褒められると嬉しそうにするが、内心では「そう思われたかった」という計算もある
+
+日本語で会話してください。
+返答は3文以内の短い文章にしてください。
+音声で話すため、記号や箇条書きは使わないでください。
+「私は〜というAIです」などは言わないでください。`;
+
+    // ════════════════════════════════════════════
+    // URLパラメータによるモード切り替え
+    // ════════════════════════════════════════════
+
+    const params        = new URLSearchParams(window.location.search);
+    const mode          = params.get('mode') === 'self' ? 'self' : 'other';
+    const promptTextarea = document.getElementById('promptTextarea');
+    const modeLabel     = document.getElementById('modeLabel');
+
+    promptTextarea.value  = (mode === 'self') ? PROMPT_SELF : PROMPT_OTHER;
+    modeLabel.textContent = (mode === 'self') ? 'SELF VIEW' : 'OTHER VIEW';
+
     // ════════════════════════════════════════════
     // 口の開閉（setInterval で繰り返し開閉）
     // ════════════════════════════════════════════
@@ -380,11 +489,10 @@
     // voice-ai ロジック
     // ════════════════════════════════════════════
 
-    const btnTalk        = document.getElementById('btnTalk');
-    const statusText     = document.getElementById('statusText');
-    const logOverlay     = document.getElementById('logOverlay');
-    const promptTextarea = document.getElementById('promptTextarea');
-    const MAX_LOG        = 4;
+    const btnTalk    = document.getElementById('btnTalk');
+    const statusText = document.getElementById('statusText');
+    const logOverlay = document.getElementById('logOverlay');
+    const MAX_LOG    = 4;
 
     let conversationHistory = [];
     let isBusy     = false;
