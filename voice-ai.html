@@ -972,12 +972,20 @@
         try { msg = JSON.parse(e.data); } catch { return; }
 
         switch (msg.type) {
-          // ループ開始（相手側からの通知）
+          // ループ開始の通知（自分 or 相手どちらがスタートしても受信する）
           case 'start':
-            loopActive = true;
-            interruptPaused = false;
-            btnLoop.textContent = '会話を停止';
-            btnLoop.classList.add('active');
+            if (!loopActive) {
+              // loopActive=false → 相手がスタートした → こちらも開始
+              loopActive = true;
+              interruptPaused = false;
+              btnLoop.textContent = '会話を停止';
+              btnLoop.classList.add('active');
+              // other 側が最初の一言を発する
+              if (mode === 'other') {
+                fetchAIResponse('始めましょう');
+              }
+            }
+            // loopActive=true のとき → 自分がスタートした → 何もしない（fetchAIResponse は startLoop() で既に呼び済み）
             break;
 
           // 相手の読み上げ完了 → こちらのターン（通常ループ or 割り込み後の再開）
