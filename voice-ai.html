@@ -23,9 +23,20 @@
       left: 50%;
       transform: translate(-50%, -50%);
       aspect-ratio: 800 / 700;
+      /* スマホ縦持ち：画面を覆うようにカバー表示 */
       width: max(100vw, calc(100vh * 800 / 700));
       overflow: hidden;
       z-index: 0;
+    }
+
+    /* PC・横長画面：ボタンと被らないよう高さに収める */
+    @media (min-aspect-ratio: 800/700) {
+      .face {
+        /* ボタンエリア88px分を除いた高さに収める */
+        width: min(100vw, calc((100vh - 88px) * 800 / 700));
+        /* ボタンエリアを除いた上半分に中心を置く */
+        top: calc(50% - 44px);
+      }
     }
 
     .face > img {
