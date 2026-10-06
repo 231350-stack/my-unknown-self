@@ -197,6 +197,37 @@
     .btn-talk:active { opacity: 0.5; }
     .btn-talk:disabled { opacity: 0.35; cursor: default; }
 
+    /* ── 会話開始/停止ボタン ── */
+    .btn-loop {
+      position: fixed;
+      bottom: 2rem;
+      left: 1.5rem;
+      background: transparent;
+      border: 1px solid rgba(42, 42, 42, 0.25);
+      font-family: monospace;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      color: rgba(42, 42, 42, 0.45);
+      cursor: pointer;
+      z-index: 20;
+      padding: 10px 16px;
+      border-radius: 50px;
+      min-height: 44px;
+      transition: color 0.2s, background 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-loop:hover {
+      color: rgba(42, 42, 42, 0.8);
+      border-color: rgba(42, 42, 42, 0.5);
+    }
+
+    .btn-loop.active {
+      background: rgba(42, 42, 42, 0.55);
+      color: #fefef9;
+      border-color: transparent;
+    }
+
     /* ── 設定ボタン ── */
     .btn-settings {
       position: fixed;
@@ -362,6 +393,9 @@
 
   <!-- 話しかけるボタン -->
   <button class="btn-talk" id="btnTalk">話しかける</button>
+
+  <!-- 会話開始/停止ボタン -->
+  <button class="btn-loop" id="btnLoop">会話を開始</button>
 
   <!-- 設定ボタン -->
   <button class="btn-settings" id="btnSettings">⚙</button>
@@ -541,6 +575,40 @@
     let isSpeaking   = false;
     let wsOnSpeakEnd    = null;  // WS ループ用：読み上げ完了後のコールバック
     let interruptPaused = false; // human_interrupt 受信後の一時停止フラグ
+
+    const btnLoop = document.getElementById('btnLoop');
+
+    function startLoop() {
+      loopActive = true;
+      interruptPaused = false;
+      wsSend({ type: 'start' });
+      btnLoop.textContent = '会話を停止';
+      btnLoop.classList.add('active');
+      // mode=other のクライアントが最初の一言を発する
+      if (mode === 'other') {
+        fetchAIResponse('始めましょう');
+      }
+    }
+
+    function stopLoop() {
+      loopActive = false;
+      interruptPaused = false;
+      wsOnSpeakEnd = null;
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      stopTalking();
+      wsSend({ type: 'stop' });
+      btnLoop.textContent = '会話を開始';
+      btnLoop.classList.remove('active');
+      setStatus('待機中');
+    }
+
+    btnLoop.addEventListener('click', function () {
+      if (loopActive) {
+        stopLoop();
+      } else {
+        startLoop();
+      }
+    });
 
     // 設定パネルの開閉
     document.getElementById('btnSettings').addEventListener('click', function () {
@@ -904,10 +972,12 @@
         try { msg = JSON.parse(e.data); } catch { return; }
 
         switch (msg.type) {
-          // ループ開始
+          // ループ開始（相手側からの通知）
           case 'start':
             loopActive = true;
             interruptPaused = false;
+            btnLoop.textContent = '会話を停止';
+            btnLoop.classList.add('active');
             break;
 
           // 相手の読み上げ完了 → こちらのターン（通常ループ or 割り込み後の再開）
@@ -929,11 +999,15 @@
             setStatus('割り込み中...');
             break;
 
-          // ループ停止
+          // ループ停止（相手側からの通知）
           case 'stop':
             loopActive = false;
             interruptPaused = false;
             wsOnSpeakEnd = null;
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            stopTalking();
+            btnLoop.textContent = '会話を開始';
+            btnLoop.classList.remove('active');
             setStatus('待機中');
             break;
         }
