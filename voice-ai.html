@@ -537,8 +537,9 @@
     const MAX_LOG    = 4;
 
     let conversationHistory = [];
-    let isBusy     = false;
-    let isSpeaking = false;
+    let isBusy       = false;
+    let isSpeaking   = false;
+    let wsOnSpeakEnd = null; // WS ループ用：読み上げ完了後のコールバック
 
     // 設定パネルの開閉
     document.getElementById('btnSettings').addEventListener('click', function () {
@@ -700,6 +701,11 @@
         isSpeaking = false;
         btnTalk.disabled = false;
         setStatus('待機中');
+        if (wsOnSpeakEnd) {
+          const cb = wsOnSpeakEnd;
+          wsOnSpeakEnd = null;
+          cb();
+        }
       };
 
       utterance.onerror = function () {
@@ -707,6 +713,7 @@
         isSpeaking = false;
         btnTalk.disabled = false;
         setStatus('待機中');
+        wsOnSpeakEnd = null;
       };
 
       window.speechSynthesis.speak(utterance);
@@ -794,6 +801,121 @@
     function setStatus(text) {
       statusText.textContent = text;
     }
+
+    // ════════════════════════════════════════════
+    // WebSocket クライアント
+    // ════════════════════════════════════════════
+
+    const WS_URL = 'wss://questionnaire.onrender.com';
+    let ws         = null;
+    let loopActive = false;
+
+    function wsSend(payload) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+      }
+    }
+
+    // WS ループ用 Claude 呼び出し
+    async function fetchAIResponse(inputText) {
+      if (!loopActive) return;
+
+      const systemPrompt = promptTextarea.value.trim();
+      conversationHistory.push({ role: 'user', content: inputText });
+
+      isBusy = true;
+      btnTalk.disabled = true;
+      setStatus('考え中...');
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 1000,
+            system: systemPrompt,
+            messages: conversationHistory,
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const msg = errData.error?.message || `HTTPエラー: ${res.status}`;
+          conversationHistory.pop();
+          addErrorEntry(msg);
+          setStatus('待機中');
+          return;
+        }
+
+        const data   = await res.json();
+        const aiText = data.content[0].text;
+
+        conversationHistory.push({ role: 'assistant', content: aiText });
+        addLogEntry('ai', aiText);
+
+        // 自分の応答をもう一方へ転送
+        wsSend({ type: 'ai_response', text: aiText });
+
+        // 読み上げ完了後に speaking_done を送り、次のターンへ渡す
+        wsOnSpeakEnd = () => {
+          if (loopActive) {
+            wsSend({ type: 'speaking_done', text: aiText });
+          }
+        };
+
+        startTalking();
+        speak(aiText);
+
+      } catch (err) {
+        conversationHistory.pop();
+        addErrorEntry('通信エラー: ' + err.message);
+        setStatus('待機中');
+      } finally {
+        isBusy = false;
+        if (!isSpeaking) btnTalk.disabled = false;
+      }
+    }
+
+    function connectWS() {
+      ws = new WebSocket(WS_URL);
+
+      ws.addEventListener('open', () => {
+        wsSend({ type: 'register', role: mode });
+        console.log(`[WS] 接続・登録 role=${mode}`);
+      });
+
+      ws.addEventListener('message', (e) => {
+        let msg;
+        try { msg = JSON.parse(e.data); } catch { return; }
+
+        switch (msg.type) {
+          // 相手の読み上げ完了 → こちらのターン
+          case 'your_turn':
+            if (loopActive) {
+              fetchAIResponse(msg.text || '');
+            }
+            break;
+
+          // ループ停止
+          case 'stop':
+            loopActive = false;
+            setStatus('待機中');
+            break;
+        }
+      });
+
+      ws.addEventListener('close', () => {
+        console.log('[WS] 切断。5秒後に再接続...');
+        setTimeout(connectWS, 5000);
+      });
+
+      ws.addEventListener('error', () => {
+        console.warn('[WS] 接続エラー');
+      });
+    }
+
+    connectWS();
   </script>
 </body>
 </html>
