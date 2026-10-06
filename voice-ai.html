@@ -539,7 +539,8 @@
     let conversationHistory = [];
     let isBusy       = false;
     let isSpeaking   = false;
-    let wsOnSpeakEnd = null; // WS ループ用：読み上げ完了後のコールバック
+    let wsOnSpeakEnd    = null;  // WS ループ用：読み上げ完了後のコールバック
+    let interruptPaused = false; // human_interrupt 受信後の一時停止フラグ
 
     // 設定パネルの開閉
     document.getElementById('btnSettings').addEventListener('click', function () {
@@ -628,6 +629,16 @@
 
         conversationHistory.push({ role: 'assistant', content: aiText });
         addLogEntry('ai', aiText);
+
+        // WS に ai_response を通知
+        wsSend({ type: 'ai_response', text: aiText });
+
+        // 読み上げ完了後にループ再開 + speaking_done 送信
+        wsOnSpeakEnd = () => {
+          loopActive = true;
+          wsSend({ type: 'speaking_done', text: aiText });
+        };
+
         startTalking();
         speak(aiText);
 
@@ -753,6 +764,9 @@
           const text = finalTranscript;
           finalTranscript = '';
           addLogEntry('user', text);
+          // ループを一時停止して割り込みを通知
+          loopActive = false;
+          wsSend({ type: 'human_interrupt', text });
           sendToClaudeAPI(text);
         } else {
           setStatus('待機中');
@@ -890,16 +904,36 @@
         try { msg = JSON.parse(e.data); } catch { return; }
 
         switch (msg.type) {
-          // 相手の読み上げ完了 → こちらのターン
+          // ループ開始
+          case 'start':
+            loopActive = true;
+            interruptPaused = false;
+            break;
+
+          // 相手の読み上げ完了 → こちらのターン（通常ループ or 割り込み後の再開）
           case 'your_turn':
-            if (loopActive) {
+            if (loopActive || interruptPaused) {
+              loopActive = true;
+              interruptPaused = false;
               fetchAIResponse(msg.text || '');
             }
+            break;
+
+          // 人間による割り込み（相手側から通知）→ 一時停止
+          case 'human_interrupt':
+            loopActive = false;
+            interruptPaused = true;
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            stopTalking();
+            wsOnSpeakEnd = null;
+            setStatus('割り込み中...');
             break;
 
           // ループ停止
           case 'stop':
             loopActive = false;
+            interruptPaused = false;
+            wsOnSpeakEnd = null;
             setStatus('待機中');
             break;
         }
