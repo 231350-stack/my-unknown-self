@@ -196,6 +196,7 @@
     .btn-talk:hover  { opacity: 0.8; }
     .btn-talk:active { opacity: 0.5; }
     .btn-talk:disabled { opacity: 0.35; cursor: default; }
+    .btn-talk { display: none; }
 
     /* ── 会話開始/停止ボタン ── */
     .btn-loop {
@@ -578,12 +579,17 @@
 
     const btnLoop = document.getElementById('btnLoop');
 
+    // SpeechRecognition のスタート/ストップ（後で上書きされる）
+    let startRecognition = function () {};
+    let stopRecognition  = function () {};
+
     function startLoop() {
       loopActive = true;
       interruptPaused = false;
       wsSend({ type: 'start' });
       btnLoop.textContent = '会話を停止';
       btnLoop.classList.add('active');
+      startRecognition();
       // mode=other のクライアントが最初の一言を発する
       if (mode === 'other') {
         fetchAIResponse('始めましょう');
@@ -596,6 +602,7 @@
       wsOnSpeakEnd = null;
       if (window.speechSynthesis) window.speechSynthesis.cancel();
       stopTalking();
+      stopRecognition();
       wsSend({ type: 'stop' });
       btnLoop.textContent = '会話を開始';
       btnLoop.classList.remove('active');
@@ -810,74 +817,49 @@
     } else {
       const recognition = new SpeechRecognition();
       recognition.lang            = 'ja-JP';
+      recognition.continuous      = true;
       recognition.interimResults  = false;
       recognition.maxAlternatives = 1;
 
-      let isHolding       = false;
-      let isRunning       = false;
-      let finalTranscript = '';
+      let isRunning = false;
 
       recognition.addEventListener('result', function (e) {
-        finalTranscript = e.results[0][0].transcript;
+        if (isSpeaking) return;
+        const text = e.results[e.results.length - 1][0].transcript.trim();
+        if (!text) return;
+        addLogEntry('user', text);
+        loopActive = false;
+        wsSend({ type: 'human_interrupt', text });
+        sendToClaudeAPI(text);
       });
 
       recognition.addEventListener('end', function () {
         isRunning = false;
-        if (isHolding) {
+        // セッション継続中は自動再起動（continuous でも稀に終了するため）
+        if (loopActive || interruptPaused) {
           try { recognition.start(); isRunning = true; } catch (e) {}
-          return;
-        }
-        btnTalk.textContent = '話しかける';
-        if (finalTranscript) {
-          const text = finalTranscript;
-          finalTranscript = '';
-          addLogEntry('user', text);
-          // ループを一時停止して割り込みを通知
-          loopActive = false;
-          wsSend({ type: 'human_interrupt', text });
-          sendToClaudeAPI(text);
-        } else {
-          setStatus('待機中');
         }
       });
 
       recognition.addEventListener('error', function (e) {
-        isHolding = false;
         isRunning = false;
-        btnTalk.textContent = '話しかける';
-        setStatus('待機中');
         if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
           alert('マイクへのアクセスを許可してください。');
         }
       });
 
-      function onPressStart(e) {
-        if (e.type === 'touchstart') e.preventDefault();
-        if (isHolding || isBusy || isSpeaking) return;
-        finalTranscript = '';
-        isHolding = true;
-        setStatus('録音中');
-        btnTalk.textContent = '録音中...';
+      startRecognition = function () {
         if (!isRunning) {
-          try { recognition.start(); isRunning = true; } catch (err) {}
+          try { recognition.start(); isRunning = true; } catch (e) {}
         }
-      }
+      };
 
-      function onPressEnd() {
-        if (!isHolding) return;
-        isHolding = false;
+      stopRecognition = function () {
         if (isRunning) {
-          recognition.stop();
-        } else {
-          btnTalk.textContent = '話しかける';
-          setStatus('待機中');
+          try { recognition.stop(); } catch (e) {}
+          isRunning = false;
         }
-      }
-
-      btnTalk.addEventListener('mousedown', onPressStart);
-      btnTalk.addEventListener('touchstart', onPressStart, { passive: false });
-      document.addEventListener('mouseup', onPressEnd);
-      document.addEventListener('touchend', onPressEnd);
+      };
     }
 
     function setStatus(text) {
