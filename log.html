@@ -174,18 +174,16 @@
         try { msg = JSON.parse(e.data); } catch { return; }
 
         switch (msg.type) {
-          case 'ai_response': {
-            const from = msg.from || 'other';
-            if (from === 'self') {
+          case 'log_entry': {
+            if (msg.role === 'self') {
               addEntry('self', '[self]', msg.text);
+            } else if (msg.role === 'human') {
+              addEntry('user', '[user]', msg.text);
             } else {
               addEntry('other', '[other]', msg.text);
             }
             break;
           }
-          case 'human_interrupt':
-            addEntry('user', '[user]', msg.text);
-            break;
           case 'start':
             addDivider();
             addSystem('会話開始');
