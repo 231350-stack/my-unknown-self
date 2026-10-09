@@ -119,43 +119,6 @@
       white-space: nowrap;
     }
 
-    /* ── 会話ログオーバーレイ ── */
-    .log-overlay {
-      position: fixed;
-      top: 12vh;
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(88vw, 560px);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      z-index: 10;
-      pointer-events: none;
-      font-family: monospace;
-    }
-
-    .log-entry {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      text-align: center;
-    }
-
-    .log-entry .speaker {
-      font-size: 9px;
-      letter-spacing: 0.15em;
-      color: rgba(42, 42, 42, 0.55);
-      text-transform: uppercase;
-    }
-
-    .log-entry .text {
-      font-size: 1.3rem;
-      line-height: 1.6;
-    }
-
-    .log-entry.user .text { color: rgba(42, 42, 42, 0.55); }
-    .log-entry.ai   .text { color: rgba(42, 42, 42, 0.80); }
-
     /* ── ステータス + ボタン（固定） ── */
     .status-text {
       position: fixed;
@@ -345,10 +308,6 @@
 
     /* ── スマホ対応 ── */
     @media (max-width: 480px) {
-      .log-entry .text {
-        font-size: 1.1rem;
-      }
-
       .status-text {
         font-size: 10px;
       }
@@ -385,9 +344,6 @@
     <img class="mouth-open"   src="顔パーツ/mouth_open.png"     alt="口（開き）">
 
   </div>
-
-  <!-- 会話ログオーバーレイ -->
-  <div class="log-overlay" id="logOverlay"></div>
 
   <!-- ステータス -->
   <div class="status-text" id="statusText">待機中</div>
@@ -568,8 +524,6 @@
 
     const btnTalk    = document.getElementById('btnTalk');
     const statusText = document.getElementById('statusText');
-    const logOverlay = document.getElementById('logOverlay');
-    const MAX_LOG    = 4;
 
     let conversationHistory = [];
     let isBusy       = false;
@@ -641,39 +595,6 @@
       document.getElementById('promptPanel').classList.remove('open');
     });
 
-    // 会話ログに追加（最新 MAX_LOG 件のみ保持）
-    function addLogEntry(role, text) {
-      while (logOverlay.children.length >= MAX_LOG) {
-        logOverlay.removeChild(logOverlay.firstChild);
-      }
-
-      var entry = document.createElement('div');
-      entry.className = 'log-entry ' + role;
-
-      var speaker = document.createElement('div');
-      speaker.className = 'speaker';
-      speaker.textContent = role === 'user' ? 'あなた' : 'OTHER';
-
-      var textEl = document.createElement('div');
-      textEl.className = 'text';
-      textEl.textContent = text;
-
-      entry.appendChild(speaker);
-      entry.appendChild(textEl);
-      logOverlay.appendChild(entry);
-    }
-
-    function addErrorEntry(message) {
-      while (logOverlay.children.length >= MAX_LOG) {
-        logOverlay.removeChild(logOverlay.firstChild);
-      }
-
-      var entry = document.createElement('div');
-      entry.style.cssText = 'font-size:1rem; color:rgba(176,64,64,0.75); text-align:center; font-family:monospace;';
-      entry.textContent = '⚠ ' + message;
-      logOverlay.appendChild(entry);
-    }
-
     // Claude API 呼び出し
     async function sendToClaudeAPI(userText) {
       const systemPrompt = promptTextarea.value.trim();
@@ -700,7 +621,6 @@
           const errData = await res.json().catch(() => ({}));
           const msg = errData.error?.message || `HTTPエラー: ${res.status}`;
           conversationHistory.pop();
-          addErrorEntry(msg);
           setStatus('待機中');
           return;
         }
@@ -709,7 +629,6 @@
         const aiText = data.content[0].text;
 
         conversationHistory.push({ role: 'assistant', content: aiText });
-        addLogEntry('ai', aiText);
 
         // WS に ai_response を通知
         wsSend({ type: 'ai_response', text: aiText });
@@ -725,7 +644,6 @@
 
       } catch (err) {
         conversationHistory.pop();
-        addErrorEntry('通信エラー: ' + err.message);
         setStatus('待機中');
       } finally {
         isBusy = false;
@@ -833,7 +751,6 @@
         if (isSpeaking) return;
         const text = e.results[e.results.length - 1][0].transcript.trim();
         if (!text) return;
-        addLogEntry('user', text);
         loopActive = false;
         wsSend({ type: 'human_interrupt', text });
         sendToClaudeAPI(text);
@@ -913,7 +830,6 @@
           const errData = await res.json().catch(() => ({}));
           const msg = errData.error?.message || `HTTPエラー: ${res.status}`;
           conversationHistory.pop();
-          addErrorEntry(msg);
           setStatus('待機中');
           return;
         }
@@ -922,7 +838,6 @@
         const aiText = data.content[0].text;
 
         conversationHistory.push({ role: 'assistant', content: aiText });
-        addLogEntry('ai', aiText);
 
         // 自分の応答をもう一方へ転送
         wsSend({ type: 'ai_response', text: aiText });
@@ -939,7 +854,6 @@
 
       } catch (err) {
         conversationHistory.pop();
-        addErrorEntry('通信エラー: ' + err.message);
         setStatus('待機中');
       } finally {
         isBusy = false;
