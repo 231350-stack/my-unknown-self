@@ -613,6 +613,12 @@
       if (loopActive) {
         stopLoop();
       } else {
+        // iOS Safari では最初のユーザー操作内で speak() を呼ばないと音声が出ない
+        // 空の utterance でアンロックしてから通常フローを開始する
+        if (window.speechSynthesis) {
+          const unlock = new SpeechSynthesisUtterance('');
+          window.speechSynthesis.speak(unlock);
+        }
         startLoop();
       }
     });
