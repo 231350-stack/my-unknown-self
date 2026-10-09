@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>会話ログ</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #f5f0e8;
+      font-family: monospace;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #2a2a2a;
+      padding: 24px 20px 100px;
+    }
+
+    h1 {
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 24px;
+    }
+
+    #log {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .entry {
+      display: flex;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      color: #999;
+      min-width: 60px;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .entry.other .label { color: #7a6a8a; }
+    .entry.self  .label { color: #5a7a6a; }
+    .entry.user  .label { color: #8a7a5a; }
+    .entry.system .label { color: #bbb; }
+
+    .text {
+      flex: 1;
+    }
+
+    .entry.system .text {
+      font-size: 11px;
+      color: #bbb;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #ddd5c4;
+      margin: 8px 0;
+    }
+
+    #status {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: #bbb;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    #btnDownload {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a2a2a;
+      color: #f5f0e8;
+      border: none;
+      font-family: monospace;
+      font-size: 13px;
+      letter-spacing: 0.15em;
+      padding: 14px 36px;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      min-height: 48px;
+    }
+
+    #btnDownload:hover { opacity: 0.75; }
+  </style>
+</head>
+<body>
+
+  <div id="log">
+    <h1>CONVERSATION LOG</h1>
+    <div id="status">接続中...</div>
+  </div>
+
+  <button id="btnDownload">ログを書き出す</button>
+
+  <script>
+    const WS_URL = 'wss://questionnaire.onrender.com';
+    const logEl  = document.getElementById('log');
+    const status = document.getElementById('status');
+
+    let ws          = null;
+    let plainText   = '';  // ダウンロード用テキスト
+
+    function addEntry(labelClass, labelText, text) {
+      const entry = document.createElement('div');
+      entry.className = 'entry ' + labelClass;
+
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = labelText;
+
+      const textEl = document.createElement('span');
+      textEl.className = 'text';
+      textEl.textContent = text;
+
+      entry.appendChild(label);
+      entry.appendChild(textEl);
+      logEl.appendChild(entry);
+      window.scrollTo(0, document.body.scrollHeight);
+
+      plainText += labelText + '\t' + text + '\n';
+    }
+
+    function addDivider() {
+      const hr = document.createElement('hr');
+      hr.className = 'divider';
+      logEl.appendChild(hr);
+      plainText += '────────────────────\n';
+    }
+
+    function addSystem(text) {
+      const entry = document.createElement('div');
+      entry.className = 'entry system';
+
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = '[sys]';
+
+      const textEl = document.createElement('span');
+      textEl.className = 'text';
+      textEl.textContent = text;
+
+      entry.appendChild(label);
+      entry.appendChild(textEl);
+      logEl.appendChild(entry);
+    }
+
+    function connectWS() {
+      ws = new WebSocket(WS_URL);
+
+      ws.addEventListener('open', () => {
+        ws.send(JSON.stringify({ type: 'register', role: 'log' }));
+        status.textContent = '接続済み・ログ監視中';
+      });
+
+      ws.addEventListener('message', (e) => {
+        let msg;
+        try { msg = JSON.parse(e.data); } catch { return; }
+
+        switch (msg.type) {
+          case 'ai_response': {
+            const from = msg.from || 'other';
+            if (from === 'self') {
+              addEntry('self', '[self]', msg.text);
+            } else {
+              addEntry('other', '[other]', msg.text);
+            }
+            break;
+          }
+          case 'human_interrupt':
+            addEntry('user', '[user]', msg.text);
+            break;
+          case 'start':
+            addDivider();
+            addSystem('会話開始');
+            break;
+          case 'stop':
+            addSystem('会話停止');
+            addDivider();
+            break;
+        }
+      });
+
+      ws.addEventListener('close', () => {
+        status.textContent = '切断。5秒後に再接続...';
+        setTimeout(connectWS, 5000);
+      });
+
+      ws.addEventListener('error', () => {
+        status.textContent = '接続エラー';
+      });
+    }
+
+    connectWS();
+
+    document.getElementById('btnDownload').addEventListener('click', function () {
+      if (!plainText.trim()) {
+        alert('ログがまだありません。');
+        return;
+      }
+      const blob = new Blob([plainText], { type: 'text/plain; charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'log.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
