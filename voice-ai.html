@@ -681,7 +681,12 @@
     }
 
     function preprocessText(text) {
-      return text.replace(/山口/g, 'わたし').replace(/。/g, '。 ');
+      let t = text.replace(/山口/g, 'わたし');
+      // 句読点の後に読点を挟んで約200msの間を作る
+      t = t.replace(/[。！？]/g, function(m) { return m + '、'; });
+      // 文末が句読点なしで終わる場合は「。」を追加
+      if (!/[。！？、]$/.test(t)) { t += '。'; }
+      return t;
     }
 
     function speak(text) {
@@ -695,8 +700,8 @@
 
       const utterance = new SpeechSynthesisUtterance(preprocessText(text));
       utterance.lang   = 'ja-JP';
-      utterance.rate   = 1.0;
-      utterance.pitch  = 0.9;
+      utterance.rate   = 0.9;
+      utterance.pitch  = 1.1;
       utterance.volume = 1.0;
 
       const voice = getJapaneseVoice();
