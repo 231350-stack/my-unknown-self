@@ -737,8 +737,8 @@
       const processed = preprocessText(text);
       const utterance = new SpeechSynthesisUtterance(processed);
       utterance.lang   = 'ja-JP';
-      utterance.rate   = 0.9;
-      utterance.pitch  = 1.1;
+      utterance.rate   = (mode === 'self') ? 0.97 : 0.9;
+      utterance.pitch  = (mode === 'self') ? 1.0  : 1.1;
       utterance.volume = 1.0;
 
       const voice = getJapaneseVoice();
