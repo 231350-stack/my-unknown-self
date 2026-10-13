@@ -686,6 +686,14 @@
       window.speechSynthesis.addEventListener('voiceschanged', function () {
         cachedVoice = null;
       });
+
+      // Chrome は SpeechSynthesis が paused 状態で止まることがある（既知バグ）
+      // isSpeaking 中に paused になっていたら resume() で強制再開
+      setInterval(function () {
+        if (isSpeaking && window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+      }, 5000);
     }
 
     function preprocessText(text) {
@@ -750,14 +758,15 @@
         wsOnSpeakEnd = null;
       };
 
-      // iOS Safari onend フォールバック：文字数×220ms＋3000ms（rate=0.9換算）
-      // onend が先に来た場合は clearTimeout でキャンセルされる
-      fallbackTimer = setTimeout(function () {
-        fallbackTimer = null;
-        handleSpeakEnd();
-      }, processed.length * 220 + 3000);
-
-      window.speechSynthesis.speak(utterance);
+      // Chrome は cancel() 直後に speak() を呼ぶと無音になるバグがある。
+      // 50ms 遅らせてから speak() を呼び、フォールバックタイマーもその後に開始する。
+      setTimeout(function () {
+        fallbackTimer = setTimeout(function () {
+          fallbackTimer = null;
+          handleSpeakEnd();
+        }, processed.length * 220 + 3000);
+        window.speechSynthesis.speak(utterance);
+      }, 50);
     }
 
     // 音声入力 (SpeechRecognition)
