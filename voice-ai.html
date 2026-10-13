@@ -641,7 +641,7 @@
         // ログ用に log_entry を送信
         wsSend({ type: 'log_entry', role: mode, text: aiText });
 
-        // 読み上げ完了後にループ再開 + speaking_done 送信
+        // 人間割り込み後：onend 発火でループを再開して speaking_done を送信
         wsOnSpeakEnd = () => {
           loopActive = true;
           wsSend({ type: 'speaking_done', text: aiText });
@@ -706,7 +706,8 @@
 
       window.speechSynthesis.cancel();
 
-      const utterance = new SpeechSynthesisUtterance(preprocessText(text));
+      const processed = preprocessText(text);
+      const utterance = new SpeechSynthesisUtterance(processed);
       utterance.lang   = 'ja-JP';
       utterance.rate   = 0.9;
       utterance.pitch  = 1.1;
@@ -737,9 +738,7 @@
         }
       }
 
-      utterance.onend = function () {
-        handleSpeakEnd();
-      };
+      utterance.onend = function () { handleSpeakEnd(); };
 
       utterance.onerror = function () {
         if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
@@ -751,12 +750,12 @@
         wsOnSpeakEnd = null;
       };
 
-      // iOS Safari では onend が発火しないことがあるため 3 秒後にフォールバック。
-      // onend が先に来た場合は clearTimeout でキャンセルされる。
+      // iOS Safari onend フォールバック：文字数×100ms＋2000ms
+      // onend が先に来た場合は clearTimeout でキャンセルされる
       fallbackTimer = setTimeout(function () {
         fallbackTimer = null;
         handleSpeakEnd();
-      }, 3000);
+      }, processed.length * 100 + 2000);
 
       window.speechSynthesis.speak(utterance);
     }
@@ -858,9 +857,10 @@
           }),
         });
 
+        // API 待機中にループが停止された場合は中断
+        if (!loopActive) { conversationHistory.pop(); return; }
+
         if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          const msg = errData.error?.message || `HTTPエラー: ${res.status}`;
           conversationHistory.pop();
           setStatus('待機中');
           return;
@@ -876,11 +876,10 @@
         // ログ用に log_entry を送信
         wsSend({ type: 'log_entry', role: mode, text: aiText });
 
-        // 読み上げ完了後に speaking_done を送り、次のターンへ渡す
+        // onend 発火後に speaking_done を送り次のターンへ渡す
+        // stopLoop() で wsOnSpeakEnd=null に設定されるため loopActive チェック不要
         wsOnSpeakEnd = () => {
-          if (loopActive) {
-            wsSend({ type: 'speaking_done', text: aiText });
-          }
+          wsSend({ type: 'speaking_done', text: aiText });
         };
 
         startTalking();
