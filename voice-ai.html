@@ -706,7 +706,13 @@
       btnTalk.disabled = true;
       setStatus('話し中...');
 
-      utterance.onend = function () {
+      let speakEndHandled = false;
+      let fallbackTimer = null;
+
+      function handleSpeakEnd() {
+        if (speakEndHandled) return;
+        speakEndHandled = true;
+        if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
         stopTalking();
         isSpeaking = false;
         btnTalk.disabled = false;
@@ -716,15 +722,28 @@
           wsOnSpeakEnd = null;
           cb();
         }
+      }
+
+      utterance.onend = function () {
+        handleSpeakEnd();
       };
 
       utterance.onerror = function () {
+        if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
+        speakEndHandled = true;
         stopTalking();
         isSpeaking = false;
         btnTalk.disabled = false;
         setStatus('待機中');
         wsOnSpeakEnd = null;
       };
+
+      // iOS Safari では onend が発火しないことがあるため 3 秒後にフォールバック。
+      // onend が先に来た場合は clearTimeout でキャンセルされる。
+      fallbackTimer = setTimeout(function () {
+        fallbackTimer = null;
+        handleSpeakEnd();
+      }, 3000);
 
       window.speechSynthesis.speak(utterance);
     }
@@ -892,6 +911,8 @@
 
           // 相手の読み上げ完了 → こちらのターン（通常ループ or 割り込み後の再開）
           case 'your_turn':
+            // 自分がまだ話し中の場合は無視（排他制御）
+            if (isSpeaking) break;
             if (loopActive || interruptPaused) {
               loopActive = true;
               interruptPaused = false;
