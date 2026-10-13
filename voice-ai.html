@@ -725,6 +725,7 @@
       if (voice) utterance.voice = voice;
 
       isSpeaking = true;
+      stopRecognition();  // AI 発話中はマイク認識を完全停止（エコーバック防止）
       btnTalk.disabled = true;
       setStatus('話し中...');
 
@@ -739,6 +740,10 @@
         isSpeaking = false;
         btnTalk.disabled = false;
         setStatus('待機中');
+        // 500ms 待ってから認識再開（スピーカーの残響をマイクが拾うのを防ぐ）
+        setTimeout(function () {
+          if (loopActive || interruptPaused) startRecognition();
+        }, 500);
         if (wsOnSpeakEnd) {
           const cb = wsOnSpeakEnd;
           wsOnSpeakEnd = null;
@@ -755,6 +760,9 @@
         isSpeaking = false;
         btnTalk.disabled = false;
         setStatus('待機中');
+        setTimeout(function () {
+          if (loopActive || interruptPaused) startRecognition();
+        }, 500);
         wsOnSpeakEnd = null;
       };
 
@@ -798,8 +806,9 @@
 
       recognition.addEventListener('end', function () {
         isRunning = false;
-        // セッション継続中は自動再起動（continuous でも稀に終了するため）
-        if (loopActive || interruptPaused) {
+        // AI 発話中に stop() した場合は再起動しない（handleSpeakEnd 内で再起動する）
+        // それ以外のセッション継続中は自動再起動（continuous でも稀に終了するため）
+        if ((loopActive || interruptPaused) && !isSpeaking) {
           try { recognition.start(); isRunning = true; } catch (e) {}
         }
       });
