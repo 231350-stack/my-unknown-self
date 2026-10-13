@@ -44,9 +44,9 @@
 
     .label {
       font-size: 11px;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.08em;
       color: #999;
-      min-width: 60px;
+      min-width: 130px;
       flex-shrink: 0;
       padding-top: 2px;
     }
@@ -108,7 +108,7 @@
 </head>
 <body>
 
-  <div id="status">接続中...</div>
+  <div id="status">○ 接続中...</div>
 
   <div id="log">
     <h1>CONVERSATION LOG</h1>
@@ -177,7 +177,7 @@
       ws.addEventListener('open', () => {
         console.log('[WS] 接続完了');
         ws.send(JSON.stringify({ type: 'register', role: 'log' }));
-        status.textContent = '接続済み';
+        status.textContent = '● 接続済み';
       });
 
       ws.addEventListener('message', (e) => {
@@ -188,11 +188,11 @@
         switch (msg.type) {
           case 'log_entry': {
             if (msg.role === 'self') {
-              addEntry('self', '[self]', msg.text);
+              addEntry('self', '【私から見た私】', msg.text);
             } else if (msg.role === 'human') {
-              addEntry('user', '[user]', msg.text);
+              addEntry('user', '【人間の声】', msg.text);
             } else {
-              addEntry('other', '[other]', msg.text);
+              addEntry('other', '【他者から見た私】', msg.text);
             }
             break;
           }
@@ -209,7 +209,7 @@
 
       ws.addEventListener('close', () => {
         console.log('[WS] 切断');
-        status.textContent = '切断 — 5秒後に再接続...';
+        status.textContent = '○ 切断 — 5秒後に再接続...';
         setTimeout(connectWS, 5000);
       });
 
