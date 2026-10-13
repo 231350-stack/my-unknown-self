@@ -192,6 +192,11 @@
       border-color: transparent;
     }
 
+    .btn-loop:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
     /* ── 設定ボタン ── */
     .btn-settings {
       position: fixed;
@@ -538,6 +543,8 @@
     let interruptPaused = false; // human_interrupt 受信後の一時停止フラグ
 
     const btnLoop = document.getElementById('btnLoop');
+    // mode=self はページロード時点では「準備する」ボタンを表示
+    if (mode === 'self') { btnLoop.textContent = '準備する'; }
 
     // SpeechRecognition のスタート/ストップ（後で上書きされる）
     let startRecognition = function () {};
@@ -547,7 +554,8 @@
       loopActive = true;
       interruptPaused = false;
       wsSend({ type: 'start' });
-      btnLoop.textContent = '会話を停止';
+      btnLoop.textContent = '会話を終了';
+      btnLoop.disabled = false;
       btnLoop.classList.add('active');
       startRecognition();
       // mode=other のクライアントが最初の一言を発する
@@ -564,7 +572,8 @@
       stopTalking();
       stopRecognition();
       wsSend({ type: 'stop' });
-      btnLoop.textContent = '会話を開始';
+      btnLoop.textContent = (mode === 'self') ? '準備する' : '会話を開始';
+      btnLoop.disabled = false;
       btnLoop.classList.remove('active');
       setStatus('待機中');
     }
@@ -572,9 +581,16 @@
     btnLoop.addEventListener('click', function () {
       if (loopActive) {
         stopLoop();
+      } else if (mode === 'self') {
+        // mode=self: iOS Safari 音声アンロックのみ。ループは WS start 受信時に開始する
+        if (window.speechSynthesis) {
+          const unlock = new SpeechSynthesisUtterance('');
+          window.speechSynthesis.speak(unlock);
+        }
+        btnLoop.textContent = '待機中';
+        btnLoop.disabled = true;
       } else {
-        // iOS Safari では最初のユーザー操作内で speak() を呼ばないと音声が出ない
-        // 空の utterance でアンロックしてから通常フローを開始する
+        // mode=other: iOS Safari アンロック + ループ開始
         if (window.speechSynthesis) {
           const unlock = new SpeechSynthesisUtterance('');
           window.speechSynthesis.speak(unlock);
@@ -929,11 +945,13 @@
           // ループ開始の通知（自分 or 相手どちらがスタートしても受信する）
           case 'start':
             if (!loopActive) {
-              // loopActive=false → 相手がスタートした → こちらも開始
+              // loopActive=false → 相手がスタートした（or 自分が準備を完了した）→ 開始
               loopActive = true;
               interruptPaused = false;
-              btnLoop.textContent = '会話を停止';
+              btnLoop.textContent = '会話を終了';
+              btnLoop.disabled = false;
               btnLoop.classList.add('active');
+              startRecognition();
               // other 側が最初の一言を発する
               if (mode === 'other') {
                 fetchAIResponse('始めましょう');
@@ -970,7 +988,9 @@
             wsOnSpeakEnd = null;
             if (window.speechSynthesis) window.speechSynthesis.cancel();
             stopTalking();
-            btnLoop.textContent = '会話を開始';
+            stopRecognition();
+            btnLoop.textContent = (mode === 'self') ? '準備する' : '会話を開始';
+            btnLoop.disabled = false;
             btnLoop.classList.remove('active');
             setStatus('待機中');
             break;
