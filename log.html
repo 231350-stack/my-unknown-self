@@ -17,7 +17,7 @@
       font-size: 15px;
       line-height: 1.7;
       color: #2a2a2a;
-      padding: 24px 20px 100px;
+      padding: 48px 20px 100px;
     }
 
     h1 {
@@ -72,11 +72,17 @@
     }
 
     #status {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
       font-size: 11px;
       letter-spacing: 0.15em;
       color: #bbb;
       text-align: center;
-      margin-bottom: 20px;
+      padding: 8px 0;
+      background: rgba(245, 240, 232, 0.92);
+      z-index: 10;
     }
 
     #btnDownload {
@@ -102,9 +108,10 @@
 </head>
 <body>
 
+  <div id="status">接続中...</div>
+
   <div id="log">
     <h1>CONVERSATION LOG</h1>
-    <div id="status">接続中...</div>
   </div>
 
   <button id="btnDownload">ログを書き出す</button>
@@ -168,13 +175,15 @@
       ws = new WebSocket(WS_URL);
 
       ws.addEventListener('open', () => {
+        console.log('[WS] 接続完了');
         ws.send(JSON.stringify({ type: 'register', role: 'log' }));
-        status.textContent = '接続済み・ログ監視中';
+        status.textContent = '接続済み';
       });
 
       ws.addEventListener('message', (e) => {
         let msg;
         try { msg = JSON.parse(e.data); } catch { return; }
+        console.log('[WS] 受信:', msg);
 
         switch (msg.type) {
           case 'log_entry': {
@@ -199,11 +208,13 @@
       });
 
       ws.addEventListener('close', () => {
-        status.textContent = '切断。5秒後に再接続...';
+        console.log('[WS] 切断');
+        status.textContent = '切断 — 5秒後に再接続...';
         setTimeout(connectWS, 5000);
       });
 
-      ws.addEventListener('error', () => {
+      ws.addEventListener('error', (e) => {
+        console.error('[WS] 接続エラー', e);
         status.textContent = '接続エラー';
       });
     }

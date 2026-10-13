@@ -630,8 +630,10 @@
 
         conversationHistory.push({ role: 'assistant', content: aiText });
 
-        // WS に ai_response を通知
+        // WS に ai_response を通知（ループ制御用）
         wsSend({ type: 'ai_response', text: aiText });
+        // ログ用に log_entry を送信
+        wsSend({ type: 'log_entry', role: mode, text: aiText });
 
         // 読み上げ完了後にループ再開 + speaking_done 送信
         wsOnSpeakEnd = () => {
@@ -863,8 +865,10 @@
 
         conversationHistory.push({ role: 'assistant', content: aiText });
 
-        // 自分の応答をもう一方へ転送
+        // 自分の応答をもう一方へ転送（ループ制御用）
         wsSend({ type: 'ai_response', text: aiText });
+        // ログ用に log_entry を送信
+        wsSend({ type: 'log_entry', role: mode, text: aiText });
 
         // 読み上げ完了後に speaking_done を送り、次のターンへ渡す
         wsOnSpeakEnd = () => {
