@@ -665,7 +665,6 @@
           wsSend({ type: 'speaking_done', text: aiText });
         };
 
-        startTalking();
         speak(aiText);
 
       } catch (err) {
@@ -793,6 +792,7 @@
           fallbackTimer = null;
           handleSpeakEnd();
         }, processed.length * 220 + 3000);
+        startTalking();  // 音声再生と同タイミングで口を開く
         window.speechSynthesis.speak(utterance);
       }, 50);
     }
@@ -921,7 +921,6 @@
           wsSend({ type: 'speaking_done', text: aiText });
         };
 
-        startTalking();
         speak(aiText);
 
       } catch (err) {
