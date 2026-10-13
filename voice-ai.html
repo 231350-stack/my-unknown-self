@@ -584,7 +584,8 @@
       } else if (mode === 'self') {
         // mode=self: iOS Safari 音声アンロックのみ。ループは WS start 受信時に開始する
         if (window.speechSynthesis) {
-          const unlock = new SpeechSynthesisUtterance('');
+          const unlock = new SpeechSynthesisUtterance('あ');
+          unlock.volume = 0.001;  // ほぼ無音だが iOS のオーディオコンテキストを確実にアンロック
           window.speechSynthesis.speak(unlock);
         }
         btnLoop.textContent = '待機中';
@@ -592,7 +593,8 @@
       } else {
         // mode=other: iOS Safari アンロック + ループ開始
         if (window.speechSynthesis) {
-          const unlock = new SpeechSynthesisUtterance('');
+          const unlock = new SpeechSynthesisUtterance('あ');
+          unlock.volume = 0.001;  // ほぼ無音だが iOS のオーディオコンテキストを確実にアンロック
           window.speechSynthesis.speak(unlock);
         }
         startLoop();
@@ -729,6 +731,8 @@
       }
 
       window.speechSynthesis.cancel();
+      // cancel() だけでは paused 状態が解除されない場合がある（Chrome バグ）
+      window.speechSynthesis.resume();
 
       const processed = preprocessText(text);
       const utterance = new SpeechSynthesisUtterance(processed);
@@ -951,13 +955,21 @@
               btnLoop.textContent = '会話を終了';
               btnLoop.disabled = false;
               btnLoop.classList.add('active');
-              startRecognition();
+              // ※ startRecognition() はここでは呼ばない。
+              // 相手の最初の発話中にマイクをオンにすると、同一デバイスでテスト時に
+              // スピーカーの音をマイクが拾って human_interrupt が送信されループが止まる。
+              // 認識は自分の最初の発話終了後（handleSpeakEnd → 500ms後）に自動開始される。
               // other 側が最初の一言を発する
               if (mode === 'other') {
                 fetchAIResponse('始めましょう');
               }
             }
             // loopActive=true のとき → 自分がスタートした → 何もしない（fetchAIResponse は startLoop() で既に呼び済み）
+            break;
+
+          // 相手が話し始めた → エコーバック防止のためマイクを止める
+          case 'ai_response':
+            stopRecognition();
             break;
 
           // 相手の読み上げ完了 → こちらのターン（通常ループ or 割り込み後の再開）
