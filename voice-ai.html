@@ -730,26 +730,21 @@
       }
 
       window.speechSynthesis.cancel();
-      // cancel() だけでは paused 状態が解除されない場合がある（Chrome バグ）
       window.speechSynthesis.resume();
 
       const processed = preprocessText(text);
-      const utterance = new SpeechSynthesisUtterance(processed);
-      utterance.lang   = 'ja-JP';
-      utterance.rate   = (mode === 'self') ? 0.97 : 0.9;
-      utterance.pitch  = (mode === 'self') ? 1.0  : 1.1;
-      utterance.volume = 1.0;
-
-      const voice = getJapaneseVoice();
-      if (voice) utterance.voice = voice;
+      const spRate    = (mode === 'self') ? 0.97 : 0.9;
+      const spPitch   = (mode === 'self') ? 1.0  : 1.1;
+      const spVoice   = getJapaneseVoice();
 
       isSpeaking = true;
-      stopRecognition();  // AI 発話中はマイク認識を完全停止（エコーバック防止）
+      stopRecognition();
       btnTalk.disabled = true;
       setStatus('話し中...');
 
       let speakEndHandled = false;
-      let fallbackTimer = null;
+      let fallbackTimer   = null;
+      let retried         = false;
 
       function handleSpeakEnd() {
         if (speakEndHandled) return;
@@ -770,31 +765,66 @@
         }
       }
 
-      utterance.onend = function () { handleSpeakEnd(); };
+      function trySpeak() {
+        if (speakEndHandled) return;
 
-      utterance.onerror = function () {
+        const utt = new SpeechSynthesisUtterance(processed);
+        utt.lang   = 'ja-JP';
+        utt.rate   = spRate;
+        utt.pitch  = spPitch;
+        utt.volume = 1.0;
+        if (spVoice) utt.voice = spVoice;
+
+        utt.onend = function () { handleSpeakEnd(); };
+
+        utt.onerror = function (e) {
+          // 意図的なキャンセル・割り込みはそのまま終了
+          if (speakEndHandled) return;
+          if (e.error === 'canceled' || e.error === 'interrupted') {
+            handleSpeakEnd();
+            return;
+          }
+          // その他のエラー → 1回だけリトライ
+          if (!retried) {
+            retried = true;
+            stopTalking();
+            if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.resume();
+            setTimeout(trySpeak, 150);
+          } else {
+            handleSpeakEnd();
+          }
+        };
+
         if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
-        speakEndHandled = true;
-        stopTalking();
-        isSpeaking = false;
-        btnTalk.disabled = false;
-        setStatus('待機中');
-        setTimeout(function () {
-          if (loopActive || interruptPaused) startRecognition();
-        }, 500);
-        wsOnSpeakEnd = null;
-      };
-
-      // Chrome は cancel() 直後に speak() を呼ぶと無音になるバグがある。
-      // 50ms 遅らせてから speak() を呼び、フォールバックタイマーもその後に開始する。
-      setTimeout(function () {
         fallbackTimer = setTimeout(function () {
           fallbackTimer = null;
           handleSpeakEnd();
         }, processed.length * 220 + 3000);
+
         startTalking();  // 音声再生と同タイミングで口を開く
-        window.speechSynthesis.speak(utterance);
-      }, 50);
+        window.speechSynthesis.speak(utt);
+
+        // 500ms 後に再生が実際に始まっているか確認（サイレント失敗の検出）
+        setTimeout(function () {
+          if (speakEndHandled || retried) return;
+          if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+            // 再生が始まっていない → リトライ
+            retried = true;
+            stopTalking();
+            if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.resume();
+            setTimeout(trySpeak, 150);
+          } else if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+        }, 500);
+      }
+
+      // Chrome: cancel() 直後の speak() は無音になるバグがある。100ms 待つ。
+      setTimeout(trySpeak, 100);
     }
 
     // 音声入力 (SpeechRecognition)
