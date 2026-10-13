@@ -750,12 +750,12 @@
         wsOnSpeakEnd = null;
       };
 
-      // iOS Safari onend フォールバック：文字数×100ms＋2000ms
+      // iOS Safari onend フォールバック：文字数×220ms＋3000ms（rate=0.9換算）
       // onend が先に来た場合は clearTimeout でキャンセルされる
       fallbackTimer = setTimeout(function () {
         fallbackTimer = null;
         handleSpeakEnd();
-      }, processed.length * 100 + 2000);
+      }, processed.length * 220 + 3000);
 
       window.speechSynthesis.speak(utterance);
     }
@@ -837,6 +837,7 @@
     // WS ループ用 Claude 呼び出し
     async function fetchAIResponse(inputText) {
       if (!loopActive) return;
+      if (isBusy || isSpeaking) return;  // API呼び出し中・発話中は二重実行を防ぐ
 
       const systemPrompt = promptTextarea.value.trim();
       conversationHistory.push({ role: 'user', content: inputText });
