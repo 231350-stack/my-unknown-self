@@ -749,13 +749,13 @@
           setTimeout(() => {
             try { recognition.start(); } catch(e) {}
           }, 500);
-          sendSpeakingDone();
+          if (wsOnSpeakEnd) { const cb = wsOnSpeakEnd; wsOnSpeakEnd = null; cb(); }
         };
 
         audio.onerror = () => {
           stopTalking();
           isSpeaking = false;
-          sendSpeakingDone();
+          if (wsOnSpeakEnd) { const cb = wsOnSpeakEnd; wsOnSpeakEnd = null; cb(); }
         };
 
         audio.play();
@@ -764,7 +764,7 @@
         console.error('speak error:', e);
         stopTalking();
         isSpeaking = false;
-        sendSpeakingDone();
+        if (wsOnSpeakEnd) { const cb = wsOnSpeakEnd; wsOnSpeakEnd = null; cb(); }
       }
     }
 
