@@ -322,7 +322,17 @@
   <div class="mode-label" id="modeLabel"></div>
 
   <!-- 顔画像（1枚で状態管理） -->
-  <img id="face-img" src="顔パーツ/face-open-closed.png" alt="顔">
+  <img id="face-img" src="顔パーツ/face-open-closed.png" alt="顔" style="
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: auto;
+  height: 100vh;
+  max-width: 100vw;
+  object-fit: contain;
+  z-index: 0;
+">
 
   <!-- ステータス -->
   <div class="status-text" id="statusText">待機中</div>
