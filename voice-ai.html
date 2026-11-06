@@ -501,18 +501,17 @@
 
     var isBlinking = false;
 
-    (function () {
-      function blink() {
-        isBlinking = true;
+    function blink() {
+      isBlinking = true;
+      updateFace();
+      setTimeout(function () {
+        isBlinking = false;
         updateFace();
-        setTimeout(function () {
-          isBlinking = false;
-          updateFace();
-        }, 150);
         setTimeout(blink, 3000 + Math.random() * 2000);
-      }
-      setTimeout(blink, 3000 + Math.random() * 2000);
-    })();
+      }, 150);
+    }
+
+    setTimeout(blink, 1000);
 
     // ════════════════════════════════════════════
     // voice-ai ロジック
