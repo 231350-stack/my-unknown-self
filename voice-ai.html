@@ -470,10 +470,13 @@
     var mouthTimer = null;
 
     function updateFace() {
+      var el = document.getElementById('face-img');
+      if (!el) { console.warn('face-img not found'); return; }
       var eyeState   = isBlinking ? 'closed' : 'open';
       var mouthState = (mouthTimer !== null) ? 'open' : 'closed';
-      document.getElementById('face-img').src =
-        '顔パーツ/face-' + eyeState + '-' + mouthState + '.png';
+      var src = '顔パーツ/face-' + eyeState + '-' + mouthState + '.png';
+      console.log('updateFace:', src);
+      el.src = src;
     }
 
     function startTalking() {
