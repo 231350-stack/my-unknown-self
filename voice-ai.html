@@ -79,9 +79,6 @@
       opacity: 0;
     }
 
-    .eye-container.blinking .eye-open  { opacity: 0; }
-    .eye-container.blinking .eye-closed { opacity: 1; }
-
     .nose {
       width: 13.75%;
       left: 43.75%;
@@ -324,31 +321,8 @@
   <!-- モードラベル -->
   <div class="mode-label" id="modeLabel"></div>
 
-  <!-- 顔（全画面） -->
-  <div class="face">
-
-    <!-- 画面左の目（キャラ右目） -->
-    <div class="eye-container eye-left">
-      <img class="eye-open"   src="顔パーツ/eye_right_open.png" alt="画面左の目（開き）">
-      <img class="eye-closed" src="顔パーツ/eyelid_right.png"   alt="画面左まぶた（閉じ）">
-    </div>
-
-    <!-- 画面右の目（キャラ左目） -->
-    <div class="eye-container eye-right">
-      <img class="eye-open"   src="顔パーツ/eye_left_open.png"  alt="画面右の目（開き）">
-      <img class="eye-closed" src="顔パーツ/eyelid_left.png"    alt="画面右まぶた（閉じ）">
-    </div>
-
-    <!-- 鼻 -->
-    <img class="nose"         src="顔パーツ/nose.png"           alt="鼻">
-
-    <!-- 口（閉じ・デフォルト） -->
-    <img class="mouth-closed" src="顔パーツ/mouth_closed.png"   alt="口（閉じ）">
-
-    <!-- 口（開き・非表示） -->
-    <img class="mouth-open"   src="顔パーツ/mouth_open.png"     alt="口（開き）">
-
-  </div>
+  <!-- 顔画像（1枚で状態管理） -->
+  <img id="face-img" src="顔パーツ/face-open-closed.png" alt="顔">
 
   <!-- ステータス -->
   <div class="status-text" id="statusText">待機中</div>
@@ -485,20 +459,21 @@
 
     var mouthTimer = null;
 
+    function updateFace() {
+      var eyeState   = isBlinking ? 'closed' : 'open';
+      var mouthState = (mouthTimer !== null) ? 'open' : 'closed';
+      document.getElementById('face-img').src =
+        '顔パーツ/face-' + eyeState + '-' + mouthState + '.png';
+    }
+
     function startTalking() {
       if (mouthTimer) return;
-      var mouthClosed = document.querySelector('.mouth-closed');
-      var mouthOpen   = document.querySelector('.mouth-open');
       var isOpen = false;
       mouthTimer = setInterval(function () {
         isOpen = !isOpen;
-        if (isOpen) {
-          mouthClosed.style.display = 'none';
-          mouthOpen.style.display   = 'block';
-        } else {
-          mouthOpen.style.display   = 'none';
-          mouthClosed.style.display = 'block';
-        }
+        var eyeState = isBlinking ? 'closed' : 'open';
+        document.getElementById('face-img').src =
+          '顔パーツ/face-' + eyeState + '-' + (isOpen ? 'open' : 'closed') + '.png';
       }, 170);
     }
 
@@ -507,25 +482,25 @@
         clearInterval(mouthTimer);
         mouthTimer = null;
       }
-      document.querySelector('.mouth-open').style.display   = 'none';
-      document.querySelector('.mouth-closed').style.display = 'block';
+      updateFace();
     }
 
     // ════════════════════════════════════════════
     // まばたきアニメーション
     // ════════════════════════════════════════════
 
+    var isBlinking = false;
+
     (function () {
-      var containers = document.querySelectorAll('.eye-container');
-
       function blink() {
-        containers.forEach(function (c) { c.classList.add('blinking'); });
+        isBlinking = true;
+        updateFace();
         setTimeout(function () {
-          containers.forEach(function (c) { c.classList.remove('blinking'); });
-        }, 100);
-        setTimeout(blink, 100 + 3000 + Math.random() * 2000);
+          isBlinking = false;
+          updateFace();
+        }, 150);
+        setTimeout(blink, 3000 + Math.random() * 2000);
       }
-
       setTimeout(blink, 3000 + Math.random() * 2000);
     })();
 
