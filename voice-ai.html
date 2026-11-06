@@ -514,7 +514,11 @@
     }
 
     console.log('blink system ready');
-    setInterval(blink, 4000 + Math.random() * 2000);
+    updateFace(); // 初期状態を目開き・口閉じに設定
+    setTimeout(function loopBlink() {
+      blink();
+      setTimeout(loopBlink, 4000 + Math.random() * 2000);
+    }, 4000);
 
     // ════════════════════════════════════════════
     // voice-ai ロジック
