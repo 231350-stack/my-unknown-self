@@ -510,11 +510,12 @@
       setTimeout(function () {
         isBlinking = false;
         updateFace();
-        setTimeout(blink, 3000 + Math.random() * 2000);
       }, 150);
+      setTimeout(blink, 3000 + Math.random() * 2000);
     }
 
-    setTimeout(blink, 1000);
+    console.log('blink system ready');
+    setTimeout(blink, 2000);
 
     // ════════════════════════════════════════════
     // voice-ai ロジック
