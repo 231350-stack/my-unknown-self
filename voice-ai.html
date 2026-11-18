@@ -484,9 +484,10 @@
       var isOpen = false;
       mouthTimer = setInterval(function () {
         isOpen = !isOpen;
+        var el = document.getElementById('face-img');
+        if (!el) return;
         var eyeState = isBlinking ? 'closed' : 'open';
-        document.getElementById('face-img').src =
-          '顔パーツ/face-' + eyeState + '-' + (isOpen ? 'open' : 'closed') + '.png';
+        el.src = '顔パーツ/face-' + eyeState + '-' + (isOpen ? 'open' : 'closed') + '.png';
       }, 170);
     }
 
@@ -716,7 +717,6 @@
     async function speak(text) {
       if (isSpeaking) return;
       isSpeaking = true;
-      startTalking();
 
       try { recognition.stop(); } catch(e) {}
 
@@ -750,6 +750,7 @@
         };
 
         audio.play();
+        startTalking();
 
       } catch(e) {
         console.error('speak error:', e);
