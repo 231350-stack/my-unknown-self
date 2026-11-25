@@ -486,6 +486,11 @@
     promptTextarea.value  = (savedPrompt !== null) ? savedPrompt : defaultPrompt;
     modeLabel.textContent = (mode === 'self') ? 'SELF VIEW' : 'OTHER VIEW';
 
+    if (mode === 'self') {
+      document.getElementById('modeLabel').style.display = 'none';
+      document.getElementById('statusText').style.display = 'none';
+    }
+
     // ════════════════════════════════════════════
     // 口の開閉（setInterval で繰り返し開閉）
     // ════════════════════════════════════════════
