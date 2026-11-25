@@ -497,7 +497,8 @@
       if (!el) { console.warn('face-img not found'); return; }
       var eyeState   = isBlinking ? 'closed' : 'open';
       var mouthState = (mouthTimer !== null) ? 'open' : 'closed';
-      var src = '顔パーツ/face-' + eyeState + '-' + mouthState + '.png';
+      var folder = (mode === 'self') ? '顔パーツ' : '顔パーツ-other';
+      var src = folder + '/face-' + eyeState + '-' + mouthState + '.png';
       console.log('updateFace:', src);
       el.src = src;
     }
@@ -510,7 +511,8 @@
         var el = document.getElementById('face-img');
         if (!el) return;
         var eyeState = isBlinking ? 'closed' : 'open';
-        el.src = '顔パーツ/face-' + eyeState + '-' + (isOpen ? 'open' : 'closed') + '.png';
+        var folder = (mode === 'self') ? '顔パーツ' : '顔パーツ-other';
+        el.src = folder + '/face-' + eyeState + '-' + (isOpen ? 'open' : 'closed') + '.png';
       }, 170);
     }
 
